@@ -104,9 +104,13 @@ class PydanticSchemaField(JSONField, t.Generic[base.ST]):
             value = Value(self.get_prep_value(value.value), value.output_field)
         elif not isinstance(value, BaseExpression):
             # Prepare the value if it is not a query expression.
-            with contextlib.suppress(Exception):
-                value = self.to_python(value)
-            value = json.loads(self.encoder().encode(value))
+
+            # If validation is disabled and value is already a dict/list (raw data),
+            # skip Pydantic validation/serialization to avoid warnings
+            if not (is_validation_disabled() and isinstance(value, (dict, list))):
+                with contextlib.suppress(Exception):
+                    value = self.to_python(value)
+                value = json.loads(self.encoder().encode(value))
 
         return super().get_prep_value(value)
 

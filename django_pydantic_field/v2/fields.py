@@ -239,6 +239,12 @@ class PydanticSchemaField(JSONField, ty.Generic[types.ST]):
             value = Value(self._prepare_raw_value(value.value), value.output_field)
         elif not isinstance(value, BaseExpression):
             # Prepare the value if it is not a query expression.
+
+            # If validation is disabled and value is already a dict/list (raw data),
+            # skip Pydantic validation/serialization to avoid warnings
+            if is_validation_disabled() and isinstance(value, (dict, list)):
+                return value
+
             try:
                 value = self.adapter.validate_python(value)
             except pydantic.ValidationError:

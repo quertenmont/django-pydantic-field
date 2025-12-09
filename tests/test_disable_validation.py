@@ -187,3 +187,32 @@ def test_disable_validation_v1_fields(db):
         assert isinstance(instance.data, dict)
         assert instance.data["name"] == "Jane"
         assert instance.data["age"] == "invalid"
+
+
+@pytest.mark.django_db
+def test_disable_validation_no_serialization_warnings(db):
+    """Test that DisableValidation doesn't cause Pydantic serialization warnings."""
+    from django.db import models
+    import warnings
+    
+    class TestModel(models.Model):
+        data = SchemaField(schema=PersonSchema)
+        
+        class Meta:
+            app_label = 'test_app'
+    
+    field = TestModel._meta.get_field('data')
+    
+    # Load invalid data with validation disabled
+    with DisableValidation():
+        invalid_data = {"name": "Jane", "age": "not_a_number"}
+        result = field.to_python('{"name": "Jane", "age": "not_a_number"}')
+        assert isinstance(result, dict)
+        
+        # get_prep_value should not produce warnings when validation is disabled
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            prep_value = field.get_prep_value(result)
+            # Filter for Pydantic serialization warnings
+            pydantic_warnings = [warning for warning in w if "Pydantic serializer" in str(warning.message)]
+            assert len(pydantic_warnings) == 0, "Should not have Pydantic serialization warnings"
