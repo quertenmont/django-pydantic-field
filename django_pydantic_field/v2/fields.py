@@ -15,6 +15,7 @@ from django.db.models.query_utils import DeferredAttribute
 
 from django_pydantic_field.compat import deprecation
 from django_pydantic_field.compat.django import BaseContainer, GenericContainer
+from django_pydantic_field.context import DisableValidation, is_validation_disabled
 
 from . import forms, types
 
@@ -51,7 +52,7 @@ if ty.TYPE_CHECKING:
         decoder: ty.Callable[[], json.JSONDecoder]
 
 
-__all__ = ("SchemaField",)
+__all__ = ("SchemaField", "DisableValidation")
 
 
 class SchemaAttribute(DeferredAttribute):
@@ -163,6 +164,15 @@ class PydanticSchemaField(JSONField, ty.Generic[types.ST]):
         return super(JSONField, self).validate(value, model_instance)
 
     def to_python(self, value: ty.Any):
+        # Skip validation if disabled via context manager
+        if is_validation_disabled():
+            try:
+                value = self.adapter.validate_json(value)
+            except ValueError:
+                """This is an expected error, this step is required to parse serialized values."""
+            # Return the raw value without Pydantic validation
+            return value
+
         try:
             value = self.adapter.validate_json(value)
         except ValueError:
@@ -179,6 +189,10 @@ class PydanticSchemaField(JSONField, ty.Generic[types.ST]):
 
         # Some backends (SQLite at least) extract non-string values in their SQL datatypes.
         if isinstance(expression, KeyTransform):
+            return super().from_db_value(value, expression, connection)
+
+        # Skip validation if disabled via context manager
+        if is_validation_disabled():
             return super().from_db_value(value, expression, connection)
 
         try:

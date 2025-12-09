@@ -11,10 +11,11 @@ from django.db.models.fields.json import JSONField
 from django.db.models.query_utils import DeferredAttribute
 
 from django_pydantic_field.compat.django import BaseContainer, GenericContainer
+from django_pydantic_field.context import DisableValidation, is_validation_disabled
 
 from . import base, forms, utils
 
-__all__ = ("SchemaField",)
+__all__ = ("SchemaField", "DisableValidation")
 
 
 class SchemaAttribute(DeferredAttribute):
@@ -77,6 +78,17 @@ class PydanticSchemaField(JSONField, t.Generic[base.ST]):
         # during `.contribute_to_class` call
         if not self._is_prepared_schema:
             self._prepare_model_schema()
+        
+        # Skip validation if disabled via context manager
+        if is_validation_disabled():
+            try:
+                # Try to parse as JSON if it's a string, but don't validate with Pydantic
+                if isinstance(value, str):
+                    return json.loads(value)
+                return value
+            except (json.JSONDecodeError, TypeError):
+                return value
+        
         try:
             assert self.decoder is not None
             return self.decoder().decode(value)

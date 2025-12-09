@@ -91,6 +91,28 @@ Here's the list of currently implemented checks:
 - `pydantic.E002`: `default=` value could not be serialized to the schema.
 - `pydantic.W003`: The default value could not be reconstructed to the schema due to `include`/`exclude` configuration.
 
+### Handling schema changes and invalid data
+
+When your Pydantic schema evolves (e.g., adding required fields), existing database records may not conform to the new schema. Use the `DisableValidation` context manager to temporarily bypass validation when querying such data:
+
+```python
+from django_pydantic_field import DisableValidation
+
+# Disable validation to retrieve non-conforming records
+with DisableValidation():
+    invalid_records = MyModel.objects.filter(...)  # Won't raise ValidationError
+    
+    for record in invalid_records:
+        # record.foo_field is a raw dict, not a Pydantic model
+        # Fix the data as needed
+        record.foo_field['new_required_field'] = 'default_value'
+        
+# Save with validation enabled
+for record in invalid_records:
+    record.save()  # Validates against schema
+```
+
+**Note:** `DisableValidation` only affects data loading (`from_db_value`, `to_python`). Saving data still performs validation. This feature uses `contextvars` and is both thread-safe and async-safe.
 
 ### `typing.Annotated` support
 As of `v0.3.5`, SchemaField also supports `typing.Annotated[...]` expressions, both through `schema=` attribute or field annotation syntax; though I find the `schema=typing.Annotated[...]` variant highly discouraged.
