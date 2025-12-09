@@ -101,12 +101,12 @@ from django_pydantic_field import DisableValidation
 # Disable validation to retrieve non-conforming records
 with DisableValidation():
     invalid_records = MyModel.objects.filter(...)  # Won't raise ValidationError
-    
+
     for record in invalid_records:
         # record.foo_field is a raw dict, not a Pydantic model
         # Fix the data as needed
         record.foo_field['new_required_field'] = 'default_value'
-        
+
 # Save with validation enabled
 for record in invalid_records:
     record.save()  # Validates against schema

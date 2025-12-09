@@ -78,7 +78,7 @@ class PydanticSchemaField(JSONField, t.Generic[base.ST]):
         # during `.contribute_to_class` call
         if not self._is_prepared_schema:
             self._prepare_model_schema()
-        
+
         # Skip validation if disabled via context manager
         if is_validation_disabled():
             try:
@@ -88,7 +88,7 @@ class PydanticSchemaField(JSONField, t.Generic[base.ST]):
                 return value
             except (json.JSONDecodeError, TypeError):
                 return value
-        
+
         try:
             assert self.decoder is not None
             return self.decoder().decode(value)
